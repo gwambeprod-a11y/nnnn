@@ -1,0 +1,79 @@
+name: Compiler BATIX v4.1 PRO Android APK (Full HD & CyberShield)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-batix-apk:
+    name: Compiler BATIX-v4.1-PRO-FullHD.apk (Node 24 & Java v5)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Recuperation du depot GitHub (Node 24)
+        uses: actions/checkout@v5
+
+      - name: 2. Installation de Node.js 24 (sans cache lockfile)
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: 3. Installation de Java JDK 17 (setup-java v5)
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: 4. Configuration du SDK Android natif
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+
+      - name: 5. Assemblage du projet BATIX v4.1 PRO (Demarrage Inscription/Connexion + Images Full HD)
+        run: |
+          rm -rf BATIX-Platform mobile-capacitor-apk batix-build
+          mkdir -p batix-build/www/assets/images
+          if [ -f "BATIX_Marketplace_App.html" ]; then
+            cp "BATIX_Marketplace_App.html" batix-build/www/index.html
+          elif [ -f "www/index.html" ]; then
+            cp "www/index.html" batix-build/www/index.html
+          elif [ -f "index.html" ]; then
+            cp "index.html" batix-build/www/index.html
+          fi
+          if [ -d "www/assets/images" ]; then
+            cp -r www/assets/images/* batix-build/www/assets/images/ 2>/dev/null || true
+          fi
+          if [ -d "assets/images" ]; then
+            cp -r assets/images/* batix-build/www/assets/images/ 2>/dev/null || true
+          fi
+          cd batix-build
+          printf "{\"name\":\"batix-pro-app\",\"version\":\"4.1.0\",\"main\":\"www/index.html\",\"dependencies\":{\"@capacitor/android\":\"^6.1.0\",\"@capacitor/core\":\"^6.1.0\"},\"devDependencies\":{\"@capacitor/cli\":\"^6.1.0\"}}\n" > package.json
+          printf "{\"appId\":\"cm.batix.pro\",\"appName\":\"BATIX PRO\",\"webDir\":\"www\",\"bundledWebRuntime\":false,\"server\":{\"androidScheme\":\"https\"}}\n" > capacitor.config.json
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            sed -i "s/<application/<uses-permission android:name=\"android.permission.CAMERA\" \/><uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" \/><uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" \/><application android:usesCleartextTraffic=\"false\"/" "$MANIFEST" || true
+          fi
+
+      - name: 6. Compilation de l APK Android (BATIX-v4.1-PRO-FullHD.apk)
+        run: |
+          cd batix-build/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../../BATIX-v4.1-PRO-FullHD.apk
+          ls -lh ../../BATIX-v4.1-PRO-FullHD.apk
+
+      - name: 7. Publication de l APK pret a telecharger (Node 24)
+        uses: actions/upload-artifact@v6
+        with:
+          name: BATIX-v4.1-PRO-Android-APK
+          path: BATIX-v4.1-PRO-FullHD.apk
+          if-no-files-found: error

@@ -1,0 +1,1 @@
+{"name":"batix-pro-app","version":"4.1.0","main":"www/index.html","dependencies":{"@capacitor/android":"^6.1.0","@capacitor/core":"^6.1.0"},"devDependencies":{"@capacitor/cli":"^6.1.0"}}
